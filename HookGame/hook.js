@@ -1,13 +1,31 @@
-var player = new Object();
-player.x = player.y = 0.0;
-player.vx = player.vy = 0.0;
+var player = {
+	x: 0.0,
+	y: 0.0,
+	vx: 0.0,
+	vy: 0.0
+}
 
-var hook = new Object();
-hook.x = hook.y = 0.0;
-hook.targetX = hook.targetY = 0.0;
-hook.reelVelocity = 600;
-hook.out = false;
-hook.attached = false;
+var hook = {
+	x: 0.0,
+	y: 0.0,
+	vx: 0.0,
+	vy: 0.0,
+	targetX: 0.0,
+	targetY: 0.0,
+	outVel: 1000.0,
+	reelVel: 600.0,
+	out: false,
+	attached: false
+}
+
+var obstacles = [ new Obstacle(500, 500, 100, 100) ]
+
+function Obstacle(x, y, sizeX, sizeY) {
+	this.x = x;
+	this.y = y;
+	this.sizeX = sizeX;
+	this.sizeY = sizeY;
+}
 
 var mouseDown = false;
 var GRAVITY = 500; // gravity in pixels/s^2
@@ -42,8 +60,14 @@ function mainLoop(timestamp) {
 }
 
 function onMouseDown(e) {
-	hook.targetX = e.offsetX;
-	hook.targetY = e.offsetY;
+	if (!hook.out) {
+		hook.out = true;
+		hook.x = player.x;
+		hook.y = player.y;
+		hook.targetX = e.offsetX;
+		hook.targetY = e.offsetY;
+	}
+
 	mouseDown = true;
 }
 
@@ -57,19 +81,55 @@ function drawCircle(x, y, radius) {
 	context.stroke();
 }
 
+function drawRect(x, y, sizeX, sizeY) {
+	context.beginPath();
+	context.rect(x, y, sizeX, sizeY);
+	context.stroke();
+}
+
 function update(deltaTime) {
 
-	if (mouseDown) {
-		// move the player towards the hook at a constant rate
+	if (hook.out) {
+		if (!hook.attached) {
+			// move the hook towards its target at a constant rate
+			relX = hook.targetX - hook.x;
+			relY = hook.targetY - hook.y;
+			distance = Math.hypot(relX, relY);
 
-		relX = hookX - player.x;
-		relY = hookY - player.y;
-		distance = Math.hypot(relX, relY); // distance from player to hook
+			conversionFac = hook.outVel / distance;
 
-		conversionFac = HOOK_VEL / distance;
+			hook.vx = relX * conversionFac;
+			hook.vy = relY * conversionFac;
+			hook.x += hook.vx * deltaTime;
+			hook.y += hook.vy * deltaTime;
 
-		player.vx = player.vx * conversionFac;
-		player.vy = player.vy * conversionFac;
+			// check if hook collided with any obstacles
+			var collided = false;
+			for (var i = 0; i < obstacles.length; i++) {
+
+				obstacle = obstacles[i];
+
+				if (hook.x >= obstacle.x && hook.y >= obstacle.y && hook.x <= obstacle.x + obstacle.sizeX && hook.y <= obstacle.y + obstacle.sizeY) {
+					collided = true;
+					break;
+				}
+			}
+
+			if (collided) {
+				hook.attached = true;
+			}
+		}
+		else { //if (hook.attached)
+			// move the player towards the hook at a constant rate
+			relX = hook.x - player.x;
+			relY = hook.y - player.y;
+			distance = Math.hypot(relX, relY);
+
+			conversionFac = hook.reelVel / distance;
+
+			player.vx = player.vx * conversionFac;
+			player.vy = player.vy * conversionFac;
+		}
 	}
 	else {
 		// apply acceleration due to gravity
@@ -90,4 +150,9 @@ function render() {
 	if (hook.out) {
 		drawCircle(hook.x, hook.y, 10);
 	}
+
+	// draw all the obstacles
+	obstacles.forEach(function (obstacle) {
+		drawRect(obstacle.x, obstacle.y, obstacle.sizeX, obstacle.sizeY);
+	})
 }
